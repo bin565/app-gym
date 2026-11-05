@@ -109,3 +109,18 @@ table.t td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 .hand{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .hand .e{font-size:28px;text-align:center}
 @media (min-width:900px){ #view{max-width:860px} .wide2{display:grid;grid-template-columns:1fr 1fr;gap:14px} }
+
+.panel{border-radius:16px;padding:16px;text-align:center;background:var(--s2)}
+.panel .xs{font-size:12px;font-weight:700;letter-spacing:.6px;opacity:.85}
+.panel .pt{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;margin:4px 0}
+.panel .sm{font-size:14px;opacity:.85}
+.panel.work{background:#26304a}.panel.work .xs{color:var(--ac)}
+.panel.rest{background:#3a2f1c}.panel.rest .xs,.panel.rest .pt{color:var(--warn)}
+.panel.go{background:#2c3a1d}.panel.go .xs,.panel.go .pt{color:var(--ac2)}
+.panel.done{background:#1f2a1d}.panel.done .pt{color:var(--ac2);font-size:32px}
+.btn.big{padding:22px;font-size:20px}
+.dot{width:38px;height:38px;border-radius:50%;border:2px solid var(--s3);background:transparent;color:var(--mu);font-weight:700;font-family:inherit;font-size:14px;cursor:pointer}
+.dot.on{background:var(--ac2);border-color:var(--ac2);color:#141720}
+#flash{position:fixed;inset:0;background:var(--ac2);opacity:0;pointer-events:none;z-index:30}
+#flash.on{animation:fl 1.6s ease-out}
+@keyframes fl{0%,40%,80%{opacity:.55}20%,60%,100%{opacity:0}}

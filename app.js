@@ -206,14 +206,34 @@ function vPreview(sid, key) {
 }
 
 // ================= MÀN HÌNH TỪNG BÀI =================
+// Bảng hiệp / nghỉ. Chỉ có 3 đồng hồ: Tổng buổi (trên cùng), Thời gian bài này, và Đồng hồ nghỉ (đếm ngược)
+const restLeft = r => r ? (r.until - Date.now()) / 1000 : 0;
+const restBtns = `<div class="row" style="gap:10px;margin-top:12px"><button class="btn ghost" data-act="rest30">+30 giây</button><button class="btn ghost" data-act="restskip">Bỏ qua nghỉ</button></div>`;
+function movePanel() {
+  const r = st.active && st.active.rest;
+  if (!r || r.kind !== 'move') return '';
+  if (restLeft(r) > 0) return `<div class="panel rest" style="margin-bottom:12px"><div class="xs">NGHỈ CHUYỂN BÀI</div><div class="pt" data-timer="rest">${fmt(restLeft(r))}</div><div class="sm">Chuẩn bị dụng cụ cho bài tiếp theo</div>${restBtns}</div>`;
+  return `<div class="panel go" style="margin-bottom:12px"><div class="pt" style="font-size:28px">Hết giờ nghỉ, bắt đầu bài!</div><button class="btn ghost sm" style="margin-top:8px" data-act="restskip">Đã hiểu</button></div>`;
+}
+function strengthPanel(x, ss, idx, steps) {
+  const r = st.active.rest, n = ss.sets.filter(Boolean).length, total = ss.sets.length;
+  if (ss.done) return `<div class="panel done"><div class="xs">XONG BÀI</div><div class="pt">✓ ${n}/${total} hiệp</div><div class="sm">Thời gian bài: ${fmt(ss.sec)}</div></div><div style="margin-top:12px">${movePanel()}</div>`;
+  if (r && r.kind === 'move' && restLeft(r) > 0) return movePanel() + `<button class="btn lime big" data-act="setdone">✓ Xong hiệp ${n + 1}/${total}</button>`;
+  if (r && r.kind === 'set' && restLeft(r) > 0) return `<div class="panel rest"><div class="xs">ĐANG NGHỈ GIỮA HIỆP</div><div class="pt" data-timer="rest">${fmt(restLeft(r))}</div><div class="sm">Tiếp theo: hiệp ${n + 1}/${total}</div>${restBtns}</div>`;
+  const go = r && r.kind === 'set';
+  return `<div class="panel ${go ? 'go' : 'work'}"><div class="xs">${go ? 'HẾT GIỜ NGHỈ · VÀO HIỆP MỚI' : 'ĐANG TẬP'}</div><div class="pt">Hiệp ${n + 1}/${total}</div><div class="sm">Làm ${esc(x.item.reps)} rep rồi bấm nút bên dưới</div></div>
+  <button class="btn lime big" style="margin-top:12px" data-act="setdone">✓ Xong hiệp ${n + 1}/${total}</button>`;
+}
+function flash() { const f = $('#flash'); if (!f) return; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+
 function vStep(key) {
   const a = st.active; if (!a) return vHome();
   const s = findSession(a.sid), steps = stepsOf(s), idx = steps.findIndex(x => x.key === key), x = steps[idx];
   if (!x) return vSession(a.sid);
   const ss = stepState(key);
-  if (x.kind === 'strength' && !ss.done) clkStart(ss.clock);
+  if (x.kind === 'strength' && !ss.done && !(a.rest && a.rest.kind === 'move' && a.rest.until > Date.now())) clkStart(ss.clock);
   save();
-  const nav = `<div class="topbar"><button class="icon-btn" data-go="#s/${a.sid}">‹</button><span class="sm mu">Phần ${idx + 1}/${steps.length} · <span data-timer="session"></span></span><span style="width:40px"></span></div><div class="progress"><i style="width:${(idx + 1) / steps.length * 100}%"></i></div>`;
+  const nav = `<div class="topbar"><button class="icon-btn" data-go="#s/${a.sid}">‹</button><span class="sm mu">Phần ${idx + 1}/${steps.length} · Tổng buổi <b data-timer="session" style="color:var(--tx)"></b></span><span style="width:40px"></span></div><div class="progress"><i style="width:${(idx + 1) / steps.length * 100}%"></i></div>`;
   const doneBtn = ss.done ? `<div class="tip">✓ Đã hoàn thành trong ${fmt(ss.sec)}</div><button class="btn" data-act="next" data-key="${key}">${idx < steps.length - 1 ? 'Phần tiếp theo' : 'Xem tổng kết buổi'}</button>`
     : `<button class="btn lime" data-act="stepdone" data-key="${key}">Hoàn thành ${x.kind === 'wod' ? 'WOD' : 'bài này'}</button>`;
   const ytBtn = `<a class="btn ghost sm" href="${yt(x.ex)}" target="_blank" rel="noopener">▶ Video hướng dẫn (YouTube)</a>`;
@@ -225,22 +245,21 @@ function vStep(key) {
     if (ss.sets.length !== it.sets) ss.sets = Array(it.sets).fill(false);
     return `${nav}${media(it.ex, EX[it.ex].vn)}
     <h1 style="margin-top:14px">${esc(EX[it.ex].name)}</h1>
-    <p class="mu">${esc(EX[it.ex].vn)}</p>
-    <div class="card">
-      <div class="row between"><div><div class="xs mu">MỤC TIÊU</div><b style="font-size:20px">${it.sets} hiệp × ${esc(it.reps)} rep</b></div><div style="text-align:right"><div class="xs mu">THỜI GIAN BÀI</div><b style="font-size:20px" data-timer="step">00:00</b></div></div>
-      ${it.note ? `<p class="sm" style="color:var(--warn)">${esc(it.note)}</p>` : ''}
+    <p class="mu">${esc(EX[it.ex].vn)} · <b style="color:var(--tx)">${it.sets} hiệp × ${esc(it.reps)} rep</b>${it.w ? ' · ' + it.w + ' ' + esc(it.unit || 'kg') : ''}</p>
+    ${it.note ? `<p class="sm" style="color:var(--warn)">${esc(it.note)}</p>` : ''}
+    <div class="card">${strengthPanel(x, ss, idx, steps)}
+      <div class="row between" style="margin-top:14px"><div class="row" style="gap:6px">${ss.sets.map((on, i) => `<button class="dot ${on ? 'on' : ''}" data-act="settoggle" data-i="${i}">${on ? '✓' : i + 1}</button>`).join('')}</div>
+      <div style="text-align:right"><div class="xs mu">Thời gian bài này</div><b data-timer="step">00:00</b>${ss.done ? ' <span style="color:var(--ac2)">✓</span>' : ''}</div></div>
+      <p class="xs mu" style="margin-top:6px">Các ô số là các hiệp. Bấm vào ô nếu cần sửa lại.</p>
       ${it.w ? `<label class="f">Mức tạ (${esc(it.unit || 'kg, tính cả thanh đòn')}) · gợi ý ${it.w}${last != null ? ` · lần trước ${last}` : ''}</label>
-      <div class="stepper"><button class="icon-btn" data-act="w" data-d="-2.5">−</button><input id="wIn" inputmode="decimal" value="${ss.w}"><button class="icon-btn" data-act="w" data-d="2.5">+</button></div>` : `<p class="sm mu" style="margin-top:10px">Trọng lượng cơ thể</p>`}
-      <label class="f">Bấm vào từng hiệp khi làm xong (tự đếm giờ nghỉ ${it.rest || 90}s)</label>
-      <div class="sets">${ss.sets.map((on, i) => `<button class="set ${on ? 'on' : ''}" data-act="set" data-i="${i}">${on ? '✓' : 'Hiệp ' + (i + 1)}</button>`).join('')}</div>
-      <div id="rest"></div>
+      <div class="stepper"><button class="icon-btn" data-act="w" data-d="-2.5">−</button><input id="wIn" inputmode="decimal" value="${ss.w}"><button class="icon-btn" data-act="w" data-d="2.5">+</button></div>` : ''}
     </div>
     <div class="card"><h3>Cách thực hiện</h3>${cues(it.ex)}<div style="margin-top:12px">${ytBtn}</div></div>
-    <div class="bottom-actions">${doneBtn}</div>`;
+    <div class="bottom-actions">${ss.done ? `<button class="btn" data-act="next" data-key="${key}">${idx < steps.length - 1 ? 'Sang bài tiếp theo ›' : 'Xem tổng kết buổi'}</button>` : `<button class="btn ghost" data-act="stepdone" data-key="${key}">Kết thúc bài này sớm</button>`}</div>`;
   }
 
   if (x.kind === 'warmup' || x.kind === 'cardio') {
-    return `${nav}${media(x.ex)}
+    return `${nav}${movePanel()}${media(x.ex)}
     <h1 style="margin-top:14px">${esc(x.kind === 'warmup' ? 'Khởi động' : EX[x.ex].name)}</h1>
     <p class="mu">${esc(x.desc || '')}</p>
     <div class="card"><div class="big-timer" data-timer="countdown" data-total="${x.minutes * 60}">${fmt(x.minutes * 60)}</div><div class="timer-sub">còn lại · mục tiêu ${x.minutes} phút</div>
@@ -253,7 +272,7 @@ function vStep(key) {
   const b = x.block, items = b.items || [b.odd, b.even];
   const itemRow = (it, i) => `<div class="it" ${b.format === 'EMOM' ? `data-emom="${i}"` : ''}><img class="thumb" src="${img(it.ex)}" alt=""><div class="t"><div class="n">${b.format === 'EMOM' ? (i === 0 ? 'Phút lẻ: ' : 'Phút chẵn: ') : ''}${esc(it.reps)} × ${esc(EX[it.ex].name)}</div><div class="d">${esc(EX[it.ex].vn)}${it.w ? ' · ' + it.w + ' ' + (it.unit || 'kg') : ''}</div></div><button class="icon-btn" data-act="info" data-ex="${it.ex}">i</button></div>`;
   const isCount = b.format !== 'FORTIME';
-  return `${nav}
+  return `${nav}${movePanel()}
   <span class="pill">${b.format === 'FORTIME' ? 'FOR TIME' : b.format}</span>
   <h1 style="margin-top:8px">WOD ${b.minutes ? b.minutes + ' phút' : ''}</h1>
   <p class="mu sm">${esc(b.desc)}</p>
@@ -490,7 +509,7 @@ function vSettings() {
   <div class="card"><ul class="cues sm"><li>3 bài sức mạnh đầu mỗi buổi: đúng số hiệp × rep.</li><li>Các bài trong WOD: 5 rep mỗi bài.</li><li>WOD buổi C: giữ nguyên 1 vòng (50-40-30-20-10) để làm bài kiểm tra.</li><li>Pull-up / chin-up: 5 rep mỗi hiệp.</li><li>Làm đủ rep ở mức cao nhất của khoảng (ví dụ 8/8) với form chuẩn → lần sau tăng 2,5kg.</li><li>Calo là ước tính, có thể lệch 20–30%.</li></ul></div>
   <h2>Khác</h2>
   <div class="card"><button class="btn danger" data-act="restart">Bắt đầu lại vòng 20 buổi (giữ thống kê)</button><button class="btn danger" style="margin-top:10px" data-act="wipe">Xóa toàn bộ dữ liệu</button></div>
-  <p class="xs mu" style="text-align:center;margin-top:16px">Gym · phiên bản 1.3 · Hình minh họa: free-exercise-db và tài liệu của bạn</p>`;
+  <p class="xs mu" style="text-align:center;margin-top:16px">Gym · phiên bản 1.4 · Hình minh họa: free-exercise-db và tài liệu của bạn</p>`;
 }
 
 // ================= SỰ KIỆN =================
@@ -521,13 +540,19 @@ const actions = {
     const nxt = steps.slice(i + 1).find(x => !(st.active.steps[x.key] && st.active.steps[x.key].done)) || steps.find(x => !(st.active.steps[x.key] && st.active.steps[x.key].done));
     go(nxt ? '#step/' + nxt.key : '#s/' + s.id);
   },
-  set(d) {
-    const ss = curStep(), i = +d.i; ss.sets[i] = !ss.sets[i];
-    const s = findSession(st.active.sid), x = stepsOf(s).find(y => y.key === location.hash.split('/')[1]);
-    if (ss.sets[i] && ss.sets.some(v => !v)) st.active.rest = { until: Date.now() + (x.item.rest || 90) * 1000, beeped: false };
-    else st.active.rest = null;
-    save(); render();
+  setdone() {
+    const a = st.active, key = location.hash.split('/')[1], ss = curStep();
+    const x = stepsOf(findSession(a.sid)).find(y => y.key === key);
+    if (a.rest && a.rest.kind === 'move') a.rest = null;
+    clkStart(ss.clock); unlockAudio();
+    const i = ss.sets.findIndex(v => !v); if (i < 0) return;
+    ss.sets[i] = true;
+    if (ss.sets.some(v => !v)) { a.rest = { kind: 'set', until: Date.now() + (x.item.rest || 90) * 1000 }; save(); renderKeep(); }
+    else completeStep(key);
   },
+  settoggle(d) { const ss = curStep(); ss.sets[+d.i] = !ss.sets[+d.i]; save(); renderKeep(); },
+  rest30() { const r = st.active.rest; if (!r) return; r.until = Math.max(r.until, Date.now()) + 30000; r.beeped = false; save(); renderKeep(); },
+  restskip() { const a = st.active; a.rest = null; startCurIfStrength(); save(); renderKeep(); },
   w(d) { const ss = curStep(); ss.w = Math.max(0, Math.round(((+ss.w || 0) + +d.d) * 10) / 10); save(); $('#wIn').value = ss.w; },
   round(d) { const ss = curStep(); ss.rounds = Math.max(0, (ss.rounds || 0) + +d.d); save(); $('#rounds').textContent = ss.rounds; },
   info(d) {
@@ -562,6 +587,12 @@ const actions = {
   wipe() { if (confirm('Xóa TOÀN BỘ dữ liệu? Hãy sao lưu trước.') && confirm('Chắc chắn xóa?')) { st = DEF(); save(); go('#home'); } }
 };
 
+function startCurIfStrength() {
+  const a = st.active, key = location.hash.startsWith('#step/') ? location.hash.split('/')[1] : null; if (!a || !key) return;
+  const x = stepsOf(findSession(a.sid)).find(y => y.key === key), ss = a.steps[key];
+  if (x && ss && x.kind === 'strength' && !ss.done) clkStart(ss.clock);
+}
+const MOVE_REST = { warmup: 60, strength: 120, wod: 120, cardio: 0 };
 function completeStep(key) {
   const a = st.active, s = findSession(a.sid), x = stepsOf(s).find(y => y.key === key), ss = stepState(key);
   clkPause(ss.clock);
@@ -572,8 +603,10 @@ function completeStep(key) {
   ss.sec = sec; ss.done = true;
   if (x.kind === 'wod') ss.result = x.block.format === 'AMRAP' ? `${ss.rounds} vòng` : x.block.format === 'FORTIME' ? fmt(sec) : 'Hoàn thành';
   if (x.kind === 'strength' && x.item.w) st.lastW[x.ex] = ss.w;
-  a.rest = null; save(); beep(2, 990); toast('✓ Đã hoàn thành ' + x.label + ' · ' + fmt(sec));
-  render();
+  const steps = stepsOf(s), last = steps[steps.length - 1].key === key, mv = MOVE_REST[x.kind];
+  a.rest = !last && mv ? { kind: 'move', until: Date.now() + mv * 1000 } : null;
+  save(); beep(2, 990); toast('✓ Xong ' + x.label + ' · ' + fmt(sec));
+  renderKeep();
 }
 
 function finishSession() {
@@ -630,7 +663,7 @@ function tick() {
   if (a) sEl.forEach(el => el.textContent = fmt((Date.now() - a.start) / 1000));
   const key = location.hash.startsWith('#step/') ? location.hash.split('/')[1] : null;
   if (!a || !key) return;
-  const ss = a.steps[key]; if (!ss) return;
+  const ss = a.steps[key] || { clock: clk() };
   const e = ss.done ? ss.sec : elapsed(ss.clock);
   const stepEl = $('[data-timer="step"]'); if (stepEl) stepEl.textContent = fmt(e);
   const sw = $('[data-timer="stopwatch"]'); if (sw) sw.textContent = fmt(e);
@@ -649,14 +682,11 @@ function tick() {
       if (ss.clock.t0 && 60 - (e % 60) <= 3.2 && !tick.cd3) { tick.cd3 = true; beep(1, 550); setTimeout(() => tick.cd3 = false, 1100); }
     }
   }
-  const restEl = $('#rest');
-  if (restEl) {
-    const r = a.rest;
-    if (r) {
-      const left = (r.until - Date.now()) / 1000;
-      if (left > 0) restEl.innerHTML = `<div class="rest"><div class="xs mu">NGHỈ GIỮA HIỆP</div><b>${fmt(left)}</b></div>`;
-      else { restEl.innerHTML = `<div class="rest" style="background:#2c3a1d"><b style="color:var(--ac2);font-size:20px">Vào hiệp tiếp theo!</b></div>`; if (!r.beeped) { r.beeped = true; beep(2, 880); save(); } }
-    } else restEl.innerHTML = '';
+  const r = a.rest;
+  if (r) {
+    const left = restLeft(r);
+    document.querySelectorAll('[data-timer="rest"]').forEach(el => el.textContent = fmt(Math.max(0, left)));
+    if (left <= 0 && !r.beeped) { r.beeped = true; save(); beep(3, 880); flash(); startCurIfStrength(); renderKeep(); }
   }
 }
 setInterval(tick, 250);
