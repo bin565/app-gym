@@ -165,7 +165,7 @@ function vSession(sid) {
   const hist = st.history.filter(h => h.sid === sid);
   return `<div class="topbar"><button class="icon-btn" data-go="${mine ? '#home' : backTo}">‹</button><span class="pill ${s.type}">Buổi ${s.no} · Tuần ${s.week}</span><span style="width:40px"></span></div>
   <h1>${esc(s.title)}</h1>
-  ${mine ? `<div class="big-timer" data-timer="session">00:00</div><div class="timer-sub">Tổng thời gian buổi tập · ${doneCnt}/${steps.length} phần</div><div class="progress"><i style="width:${doneCnt / steps.length * 100}%"></i></div>` : `<p class="mu sm">Dự kiến 65–80 phút · ${steps.length} phần · bấm vào từng phần để xem trước cách tập</p>`}
+  ${mine ? `<div class="big-timer" data-timer="session">00:00</div><div class="timer-sub">Tổng thời gian buổi tập (chạy tới khi bấm Hoàn thành buổi) · ${doneCnt}/${steps.length} phần</div>${doneCnt === steps.length ? '<div class="panel go" style="margin:10px 0"><div class="pt" style="font-size:24px">Đã xong cả ' + steps.length + ' phần!</div><div class="sm">Bấm nút xanh bên dưới để lưu buổi tập và dừng đồng hồ.</div></div>' : ''}<div class="progress"><i style="width:${doneCnt / steps.length * 100}%"></i></div>` : `<p class="mu sm">Dự kiến 65–80 phút · ${steps.length} phần · bấm vào từng phần để xem trước cách tập</p>`}
   ${hist.length ? `<div class="tip">Đã tập buổi này ${hist.length} lần, lần gần nhất ${new Date(hist[hist.length - 1].start).toLocaleDateString('vi-VN')}.</div>` : ''}
   <div class="card list">${steps.map((x, i) => {
     const ss = mine && a.steps[x.key];
@@ -509,7 +509,7 @@ function vSettings() {
   <div class="card"><ul class="cues sm"><li>3 bài sức mạnh đầu mỗi buổi: đúng số hiệp × rep.</li><li>Các bài trong WOD: 5 rep mỗi bài.</li><li>WOD buổi C: giữ nguyên 1 vòng (50-40-30-20-10) để làm bài kiểm tra.</li><li>Pull-up / chin-up: 5 rep mỗi hiệp.</li><li>Làm đủ rep ở mức cao nhất của khoảng (ví dụ 8/8) với form chuẩn → lần sau tăng 2,5kg.</li><li>Calo là ước tính, có thể lệch 20–30%.</li></ul></div>
   <h2>Khác</h2>
   <div class="card"><button class="btn danger" data-act="restart">Bắt đầu lại vòng 20 buổi (giữ thống kê)</button><button class="btn danger" style="margin-top:10px" data-act="wipe">Xóa toàn bộ dữ liệu</button></div>
-  <p class="xs mu" style="text-align:center;margin-top:16px">Gym · phiên bản 1.4 · Hình minh họa: free-exercise-db và tài liệu của bạn</p>`;
+  <p class="xs mu" style="text-align:center;margin-top:16px">Gym · phiên bản 1.5 · Hình minh họa: free-exercise-db và tài liệu của bạn</p>`;
 }
 
 // ================= SỰ KIỆN =================
@@ -538,7 +538,7 @@ const actions = {
   next(d) {
     const s = findSession(st.active.sid), steps = stepsOf(s), i = steps.findIndex(x => x.key === d.key);
     const nxt = steps.slice(i + 1).find(x => !(st.active.steps[x.key] && st.active.steps[x.key].done)) || steps.find(x => !(st.active.steps[x.key] && st.active.steps[x.key].done));
-    go(nxt ? '#step/' + nxt.key : '#s/' + s.id);
+    if (nxt) go('#step/' + nxt.key); else finishSession();
   },
   setdone() {
     const a = st.active, key = location.hash.split('/')[1], ss = curStep();
@@ -693,5 +693,9 @@ setInterval(tick, 250);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); } });
 
 // ================= KHỞI ĐỘNG =================
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').then(r => { r.update(); document.addEventListener('visibilitychange', () => { if (!document.hidden) r.update(); }); }).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+}
 render();
