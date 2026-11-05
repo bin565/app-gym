@@ -55,7 +55,7 @@ a.it{color:inherit;text-decoration:none}
 .session-it.next{outline:2px solid var(--ac)}
 /* step screen */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.media{background:#fff;border-radius:20px;overflow:hidden;aspect-ratio:3/2;max-height:30vh;width:100%;position:relative}
+.media{background:#0d0f15;border-radius:20px;overflow:hidden;aspect-ratio:3/2;max-height:30vh;width:100%;position:relative}
 .media img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;transition:opacity .35s}
 .media .lbl{position:absolute;left:10px;bottom:10px;background:rgba(22,25,34,.75);color:#fff;font-size:12px;padding:4px 9px;border-radius:8px}
 .big-timer{font-size:64px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-1px;margin:10px 0 0}
